@@ -1,13 +1,11 @@
-# Welcome to Sonic Pi v2.7
 
-PROG_DURATION = 2.0
+BASS_AMP = 1.2
+MELODY_AMP = 1.4
+CHORD_AMP = 1.6
+DRUM_AMP = 1
+LOW_BASS_AMP = 0.4
 
-
-BASS_AMP = 1.8
-MELODY_AMP = 1.2
-CHORD_AMP = 1.4
-DRUM_AMP = 1.0
-
+EFFECT_MIX = 0
 
 chords = [
   c1 = chord(:c, :major7),
@@ -25,11 +23,10 @@ comment do
   ]
 end
 
-
 live_loop :main do
   with_fx :level, amp: CHORD_AMP do
     sync :bass
-    with_fx :ixi_techno, mix: 0.2, phase: 8 do
+    with_fx :ixi_techno, mix: EFFECT_MIX, phase: 8 do
       use_synth :pulse
       chords.each do |chord|
         with_fx :reverb, room: 0.9 do
@@ -110,20 +107,17 @@ live_loop :bass do
   end
 end
 
+
 live_loop :bass_note do
   with_fx :level, amp: BASS_AMP do
-    bass1 = [:c2, :a1, :d2, :c2]
-    bass2 = [:c2, :a1, :d2, :g2]
-    bass3 = Proc.new { (0...4).map { scale(:C, :major_pentatonic).choose - 24 } }
-    bass4 = -> { bass1.map { |b| b + [0, ].choose } }
-
-    bassline = [bass1, bass1, bass4.call, bass4.call].ring.tick
-
-    sync :bass
+    bass1 = [:c2, :f2, :d2, :c2]
+    bass2 = [:c2, :d2, :f2, :e2]
+    bassline = bass1 + bass1 + bass2 + bass1
+    sync :main
     bassline.each do |c|
-      with_fx :lpf, cutoff: rrand(110,120) do
+      with_fx :lpf, cutoff: rrand(105,110) do
         with_synth :subpulse do
-          play c, amp: 1, sub_amp: 1.1, sustain: 0.4, release: 1.8, env_curve: 2, cutoff: 110
+          play c, amp: 1, sub_amp: 1.3, sustain: 0.5, release: 1.5, cutoff: 110, pan: [0.3,-0.3].ring.tick
           sleep PROG_DURATION
         end
       end
@@ -131,5 +125,31 @@ live_loop :bass_note do
   end
 end
 
-
-#end
+live_loop :low_bass do
+  with_fx :level, amp: LOW_BASS_AMP do
+    bass1 = [:c2, :f2, :d2, :c2]
+    bass2 = [:c2, :d2, :f2, :c2]
+    low_bassline = bass1 + bass1 + bass2 + bass1
+    sync :bass_note
+    low_bassline.each do |c|
+      with_synth :tri do
+        p = Proc.new { |n, release| play n,
+                       amp: 1,
+                       release: release,
+                       cutoff: 50,
+                       coef: 0.8, # pluck
+                       depth: 0.2, # fm
+                       divisor: 0.5, # fm
+                       detune: 0, # dtri, dpulse
+                       pulse_width: 0.1, # tri
+                       pan: rdist(0.2) }
+        p.call(c, 1.3) if tick.even?
+        sleep 1
+        p.call(c, 0.8)
+        sleep 0.5
+        p.call(c, 0.9)
+        sleep 0.5
+      end
+    end
+  end
+end
